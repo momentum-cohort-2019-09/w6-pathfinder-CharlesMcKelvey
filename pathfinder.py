@@ -3,6 +3,7 @@
 from PIL import Image
 # Figure out what you want
 import numpy as np
+import random as random
 # np.loadtext(file, dtype=int)
 # using np.subtract(map_color_array, lowest)
 # using np.divide(map_color_array, diff_between_low_high)
@@ -21,10 +22,39 @@ class Map:
         self.height = ''
         self.map = ''
         self.map_trails = ''
-        # Pathfinders will be a list of my paths that I have taken. Initially it will just be one but then I will have all of them starting at the left most edge (600 for small, 1200 for large).
+        # Paths will be a list of my paths that I have taken. Initially it will just be one but then I will have all of them starting at the left most edge (600 for small, 1200 for large).
+        # Listed with a score and the path
         self.paths = []
         self.worst = ''
         self.best = ''
+
+    # This is essentially the main function
+    def build_map(self):
+        """
+        This is the main function that is called when wanting to create a map.
+        """
+        choice = input('Would you like the small or large map?').lower()
+        if choice == 'small':
+            self.build_map_data('elevation_small.txt')
+            self.set_high_and_low()
+            self.build_map_colors()
+            self.color_map()
+            self.find_paths()
+            self.draw_trails()
+            # self.display_map()
+            self.display_map_trails()
+        elif choice == 'large':
+            self.build_map_data('elevation_large.txt')
+            self.set_high_and_low()
+            self.build_map_colors()
+            self.color_map()
+            self.find_paths()
+            self.draw_trails()
+            # self.display_map()
+            self.display_map_trails()
+        else:
+            print('Seems you have mistyped something')
+            self.build_map()
 
     def display_map(self):
         self.map.show()
@@ -37,6 +67,8 @@ class Map:
             rows = elevation_map.read().splitlines()
             for row in rows:
                 row = row.split()
+                for i in range(len(row)):
+                    row[i] = int(row[i])
                 self.elevations.append(row)
         self.width = len(self.elevations)
         self.height = len(self.elevations[0])
@@ -44,10 +76,10 @@ class Map:
     def set_high_and_low(self):
         for row in self.elevations:
             for number in row:
-                if int(number) > self.highest:
-                    self.highest = int(number)
-                elif int(number) < self.lowest:
-                    self.lowest = int(number)
+                if number > self.highest:
+                    self.highest = number
+                elif number < self.lowest:
+                    self.lowest = number
 
     def build_map_colors(self):
         """
@@ -56,18 +88,15 @@ class Map:
         """
         self.map = Image.new(
             'RGBA', (self.width, self.height), (0, 0, 0, 255))
-        # Need to use putpixel to place the specific elevations in
         for row in self.elevations:
             for number in row:
-                base = (int(number) - self.lowest) / \
+                base = (number - self.lowest) / \
                     (self.highest - self.lowest)
                 base = base * 255
                 base = round(base)
                 self.colored_map.append((base, base, base, 255))
 
     def color_map(self):
-        # This part is suppoed to color the map
-        # The count is used to traverse the colored_map list and grab each point that is created as we go.
         count = 0
         for y in range(len(self.elevations)):
             for x in range(len(self.elevations[y])):
@@ -77,68 +106,35 @@ class Map:
         self.map.save('map.png')
         # self.map.show()
 
-    def build_map(self):
-        """
-        This is the main function that is called when wanting to create a map.
-        """
-        # Choosing between big and small map
-        choice = input('Would you like the small or large map?').lower()
-        if choice == 'small':
-            self.build_map_data('elevation_small.txt')
-            self.set_high_and_low()
-            self.build_map_colors()
-            self.color_map()
-            self.find_paths()
-            self.display_map()
-            self.display_map_trails()
-        elif choice == 'large':
-            self.build_map_data('elevation_large.txt')
-            self.set_high_and_low()
-            self.build_map_colors()
-            self.color_map()
-            self.find_paths()
-            self.display_map()
-        else:
-            print('Seems you have mistyped something')
-            self.build_map()
-
     def find_paths(self):
         """
         This will be my pathfinder generator and will loop through every starting position with the x position being 0.
         """
         starting_points = [item for item in self.coords if item[0] == 0]
-        score_and_path = []
+        # score_and_path = []
         # count = 0
-        test = starting_points[0]
-        print('This is the test', test)
+        test = random.choice(starting_points)
         hiker = Pathfinder(self)
         path, score = hiker.find_path(test)
         path_score = [score, path]
-        score_and_path.append(path_score)
-        print('Path', path)
+        self.paths.append(path_score)
         # for start in starting_points:
         #     hiker = Pathfinder(self)
-        #     # The pathfinder when done hiking will append the list of elevations to path and then append that to the paths.
-        #     # Path will have an additional piece of its object. It will be a list of tuples with a score as the 1st value. Then a list of tuples
-        #     # Ex: [ int(score), [ coordinate ] ]
         #     path, score = hiker.find_path(start)
-        #     self.paths.append([score, path])
         #     path_score = [score, path]
-        #     score_and_path.append(path_score)
-        #     count += 1
-        #     print('Path', count)
+        #     self.paths.append(path_score)
         # Find the best score in score_and_path
-        self.best = score_and_path[0]
-        self.worst = score_and_path[0]
+        self.best = self.paths[0]
+        self.worst = self.paths[0]
         # Saving both worst and best and will print both. One being red, the other blue
         # best/worst structure: (score, [path])
         # Needed path to highlight specific path
-        for score in score_and_path:
+        for score in self.paths:
             # Going for the best one
-            if score[0] < self.best[0]:
+            if self.best[0] < score[0]:
                 self.best = score
             # Going for the worst
-            elif score[0] > self.worst[0]:
+            elif self.worst[0] > score[0]:
                 self.worst = score
 
     def draw_trails(self):
@@ -147,14 +143,16 @@ class Map:
         """
         self.map_trails = self.map
         for trail in self.paths:
-            self.draw_path(trail)
-        self.draw_path(self.worst, ('250', '0', '0', '255'))
-        self.draw_path(self.best, ('250', '0', '0', '255'))
+            self.draw_path(trail[1])
+        self.draw_path(self.worst[1], (250, 0, 0, 255))
+        self.draw_path(self.best[1], (0, 255, 0, 255))
 
-    def draw_path(self, path, color=('0', '150', '0', '255')):
+    def draw_path(self, path, color=(0, 255, 0, 255)):
+        # point = ( x, y, elevation ) path = [ point, point, point, etc. ]
         for point in path:
-            self.map_trails.putpixel((point[0], point[1]), color)
-        self.map_trails.save()
+            if type(point) != int:  # for the score that is passed in
+                self.map_trails.putpixel((point[0], point[1]), color)
+        self.map_trails.save('map_trails.png')
 
 
 class Pathfinder:
@@ -165,6 +163,8 @@ class Pathfinder:
         self.elevation_change = []
         # This will be the list of the full tuple (x, y, elevation) as a way to check where the pathfinder has been
         self.path = []
+        # This will be what parts of the map are left for the pathfinder to go through
+        self.remaining = []
 
     def find_path(self, start_point):
         """
@@ -173,25 +173,26 @@ class Pathfinder:
         # Should append a coordinate for the map. x[0] and y[1] elevation[2] will need to be accessed in a loop. You could, wherever you are, search through the list to find that, then do math, such as x+1 and then loop through such that y+1 y+0 y-1 is gained. and use those to get the tuple that matches that so you have the elevation. Once there, calculate difference in elevation, grab the lowest absolute value difference and add to sum, while also replacing the current coordinate of the pathfinder position.
         trail = []
         current = start_point
+        self.remaining = self.map.coords[:]
         # This would be the x in the map
         while current[0]+1 < self.map.width:
             # Choices will be the list of tuples
-            options = self.next_step(current)
-            best = current
+            options, self.remaining = self.next_step(current, self.remaining)
+            best_choice = None
             for choice in options:
-                diff = abs(int(choice[2]) - int(current[2]))
-                if best == current:
-                    best = choice
+                diff = abs(choice[2] - current[2])
+                if best_choice == None:
+                    best_choice = choice
                 # By this point, the error would have gone away
-                elif diff > abs((int(best[2]) - int(choice[2]))):
-                    best = choice
-            trail.append(best)
-            current = best
+                elif diff > abs((best_choice[2] - current[2])):
+                    best_choice = choice
+            trail.append(best_choice)
+            current = best_choice
         # After we have found the path, we will check the sum of the trail
-        score = sum([int(elevation[2]) for elevation in trail])
+        score = sum([elevation[2] for elevation in trail])
         return trail, score
 
-    def next_step(self, current):
+    def next_step(self, current, remaining):
         """
         Looks in the maps tuple elevations and checks for what is available
         Returns a list of 3 options
@@ -203,17 +204,16 @@ class Pathfinder:
         # option[1] should be the y of the tuple
         # option = ( x, y, elevation )
         options = []
-        for option in self.map.coords:
-            # First check looking for if the y is above, at, or below the current
-            # Second check looking for if the x is one above the current
+        for option in remaining:
             if option[1] == current[1]+1 and option[0] == current[0]+1:
                 options.append(option)
             elif option[1] == current[1] and option[0] == current[0]+1:
                 options.append(option)
             elif option[1] == current[1]-1 and option[0] == current[0]+1:
                 options.append(option)
+        remaining = [path for path in remaining if current[0] < path[0]]
         # options = [option for option in self.map.coords if option[0] == current[0]+1 and (option[1]+1 == current[1]+1 or option[1] == current[1] or option[1]-1 == current[1]-1)]
-        return options
+        return options, remaining
 
 
 # Start it up!!! ----------------------------
